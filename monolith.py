@@ -5,10 +5,8 @@ from functions import *
 initSockets()
 		
 # Launch the listener in its own thread since it doesn't require user interaction	
-receiveThread = threading.Thread( name="receive", target=receivePackets )
+receiveThread = threading.Thread( name="receive", target=receiveLoop )
 receiveThread.daemon = True
 receiveThread.start()
 
-# sendPackets is essentially the main function of this program
-# it will keep prompting the user for data to send until the program is killed
-sendPackets()
+sendLoop()
