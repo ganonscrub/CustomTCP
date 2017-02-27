@@ -268,14 +268,19 @@ def sendLoop():
 				data = None
 				
 				if message[-4] == '.':
-					isFile = True
-					fileSize = getFileSize( message )
-					numPackets = int( (fileSize / PACKET_DATABYTES) + 1 )
-					print( getISO(), "SENDER: isFile", isFile, "fileSize:", fileSize, "numPackets:", numPackets )
-					data = getFileBytes( message, curPacket )
+					if os.path.isfile( message ):						
+						isFile = True
+						fileSize = getFileSize( message )
+						numPackets = int( (fileSize / PACKET_DATABYTES) + 1 )
+						print( getISO(), "SENDER: isFile", isFile, "fileSize:", fileSize, "numPackets:", numPackets )
+						data = getFileBytes( message, curPacket )
+					else:
+						print( "Given filename does not exist" )
+						continue
 					
 				else: # continue sending remaining packets
-					pass
+					data = bytearray( message.encode() )
+					numPackets = int( len(data) / PACKET_DATABYTES ) + 1
 				
 				packet = make_packet( checksum( 0, data ), 0, data )
 				
@@ -317,7 +322,11 @@ def sendLoop():
 			print( getISO(), "SENDER: Waiting for ACK 0" )
 			try:
 				data, address = SOCK_SEND.recvfrom( 32 )
-				if data == b'ACK0':
+				
+				packet = bytearray( data )
+				corruptPacket( packet, SENDER_CORRUPT_RATE )
+				
+				if packet == b'ACK0':
 					print( getISO(), "SENDER: ACK 0 Success" )
 					curPacket += 1
 					SENDER_STATE = SEND_STATE_WAIT1
@@ -331,7 +340,11 @@ def sendLoop():
 			print( getISO(), "SENDER: Waiting for ACK 1" )
 			try:
 				data, address = SOCK_SEND.recvfrom( 32 )
-				if data == b'ACK1':
+				
+				packet = bytearray( data )
+				corruptPacket( packet, SENDER_CORRUPT_RATE )
+				
+				if packet == b'ACK1':
 					print( getISO(), "SENDER: ACK 1 Success" )
 					curPacket += 1
 					SENDER_STATE = SEND_STATE_WAIT0
@@ -344,15 +357,16 @@ def sendLoop():
 def receiveLoop():
 	global SOCK_RECEIVE, PACKET_MAXSIZE, RECEIVER_STATE, RECEIVER_CORRUPT_RATE
 
-	FILE_OUTPUT = 'output.bmp'
-	
-	try:
-		os.remove( FILE_OUTPUT )
-	except FileNotFoundError:
-		pass
+	FILE_NAME = None
+	updateFilename = True
+	packetsReceived = 0
 	
 	while True:
 		try:
+			if updateFilename:
+				FILE_NAME = 'output_' + getISO()[:19].replace(':','_') + '.bmp'
+				updateFilename = False
+				
 			if RECEIVER_STATE == RECEIVE_STATE_WAIT0:
 				data, address = SOCK_RECEIVE.recvfrom( PACKET_MAXSIZE )
 				
@@ -365,13 +379,14 @@ def receiveLoop():
 				if packet[2] == 0 and packetSum == chksum: # sequence number is byte at position 2
 					print( getISO(), "RECEIVER: Got 0" )
 					
-					file = open( FILE_OUTPUT, 'ab' )
+					file = open( FILE_NAME, 'ab' )
 					packet = packet[3:]					
 					file.write( packet )
 					file.close()
 					
 					SOCK_RECEIVE.sendto( b'ACK0', address )
 					RECEIVER_STATE = RECEIVE_STATE_WAIT1
+					packetsReceived += 1
 				else:
 					print( getISO(), "RECEIVER: Got 1 when expecting 0" )
 					SOCK_RECEIVE.sendto( b'ACK1', address )
@@ -388,18 +403,19 @@ def receiveLoop():
 				if packet[2] == 1 and packetSum == chksum: # sequence number is byte at position 2
 					print( getISO(), "RECEIVER: Got 1" )					
 					
-					file = open( FILE_OUTPUT, 'ab' )
+					file = open( FILE_NAME, 'ab' )
 					packet = packet[3:]
 					file.write( packet )
 					file.close()
 					
 					SOCK_RECEIVE.sendto( b'ACK1', address )
 					RECEIVER_STATE = RECEIVE_STATE_WAIT0
+					packetsReceived += 1
 				else:
 					print( getISO(), "RECEIVER: Corrupt packet" )
 					SOCK_RECEIVE.sendto( b'ACK0', address )
 		except socket.timeout:
-			pass
+			updateFilename = True
 				
 def checksum( sequence, bytes ):
 	sum = sequence
