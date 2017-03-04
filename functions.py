@@ -264,10 +264,14 @@ def sendLoop():
 	startTime = None
 	endTime = None
 	
+	debug = True
+	
 	while True:				
 		if SENDER_STATE == SEND_STATE_WAIT0:			
 			if numPackets == 0: # prompt for something to send							
-				print( getISO(), "SENDER: WAIT0 for input..." )
+				if debug:
+					print( getISO(), "SENDER: WAIT0 for input..." )
+					
 				message = input( "Enter path of file to send: ")
 				
 				startTime = time.time()
@@ -279,7 +283,10 @@ def sendLoop():
 						isFile = True
 						fileSize = getFileSize( message )
 						numPackets = int( (fileSize / PACKET_DATABYTES) + 1 )
-						print( getISO(), "SENDER: isFile", isFile, "fileSize:", fileSize, "numPackets:", numPackets )
+						
+						if debug:
+							print( getISO(), "SENDER: isFile", isFile, "fileSize:", fileSize, "numPackets:", numPackets )
+							
 						data = getFileBytes( message, curPacket )
 					else:
 						print( "Given filename does not exist" )
@@ -330,7 +337,7 @@ def sendLoop():
 					packet = make_packet( checksum( 1, data ), 1, data )
 					SOCK_SEND.sendto( packet, (SEND_HOST, SEND_PORT) )
 					SENDER_STATE = SEND_STATE_WAITACK1
-					if curPacket % 100 == 0:
+					if curPacket % 100 == 0 and debug:
 						print( getISO(), int(((100 * curPacket / 100) / numPackets)*100), "percent of packets sent" )
 			
 		elif SENDER_STATE == SEND_STATE_WAITACK0:
@@ -349,7 +356,10 @@ def sendLoop():
 					#print( getISO(), "SENDER: ACK 0 Failure, resending..." )
 					SENDER_STATE = SEND_STATE_WAIT0					
 			except socket.timeout:
-				print( getISO(), "SENDER: timeout" );
+				if debug:
+					print( getISO(), "SENDER: timeout" );
+					
+				SENDER_STATE = SEND_STATE_WAIT0
 			
 		elif SENDER_STATE == SEND_STATE_WAITACK1:
 			#print( getISO(), "SENDER: Waiting for ACK 1" )
@@ -367,7 +377,10 @@ def sendLoop():
 					#print( getISO(), "SENDER: ACK 1 Failure, resending..." )
 					SENDER_STATE = SEND_STATE_WAIT1					
 			except socket.timeout:
-				print( getISO(), "SENDER: timeout" );
+				if debug:
+					print( getISO(), "SENDER: timeout" );
+					
+				SENDER_STATE = SEND_STATE_WAIT1
 			
 def receiveLoop():
 	global SOCK_RECEIVE, PACKET_MAXSIZE, RECEIVER_STATE, RECEIVER_CORRUPT_RATE
