@@ -14,7 +14,7 @@ SEND_PORT = 1337
 SOCK_RECEIVE = None
 SOCK_SEND = None
 
-SOCK_RECEIVE_TIMEOUT = 0.5
+SOCK_RECEIVE_TIMEOUT = 2.0
 SOCK_SEND_TIMEOUT = 0.5 # 1 second to be safe, could make this lower later
 
 MAX_SEND_RETRIES = 10 # if at first you don't succeed, try again
