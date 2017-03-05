@@ -1,4 +1,6 @@
+import time
 import datetime
+import random
 
 G_PACKET_CHECKSUMBYTES = 2
 G_PACKET_SEQUENCEBYTES = 1

@@ -22,6 +22,7 @@ class RDTReceiver:
 		self.isReceiving = False
 		self.packetsReceived = 0
 		self.currentFilename = None
+		self.dataCorruptRate = 0
 		
 	def determineFileExtension( self, packet ):
 		if len( packet ) < 4:
@@ -54,7 +55,7 @@ class RDTReceiver:
 			self.appendToFile( data[G_PACKET_DATASTART:] )
 			self.state = RDTReceiver.STATE_WAIT_1
 		else:
-			print( "RECEIVER: Did not get SEQ0" )
+			#print( "RECEIVER: Did not get SEQ0" )
 			self.socket.sendto( b'ACK1', addr )
 	
 	def handleStateWait1( self, data, addr ):
@@ -68,21 +69,24 @@ class RDTReceiver:
 			self.appendToFile( data[G_PACKET_DATASTART:] )
 			self.state = RDTReceiver.STATE_WAIT_0
 		else:
-			print( "RECEIVER: Did not get SEQ1" )
+			#print( "RECEIVER: Did not get SEQ1" )
 			self.socket.sendto( b'ACK0', addr )
 	
 	def receiveLoop( self ):
 		while True:
 			try:
 				data, address = self.socket.recvfrom( G_PACKET_MAXSIZE )
+				
+				packet = bytearray( data )
+				corruptPacket( packet, self.dataCorruptRate )
+				
 				if self.state == RDTReceiver.STATE_WAIT_0:
 					self.handleStateWait0( data, address )
 				elif self.state == RDTReceiver.STATE_WAIT_1:
 					self.handleStateWait1( data, address )
 			except socket.timeout:
 				if self.isReceiving:
-					print( "Received:", self.packetsReceived )
-					print( "Receiver timed out, waiting for a new transmission" )
+					print( "\nReceiver timed out, waiting for a new transmission; packets received:", self.packetsReceived )
 					self.isReceiving = False
 					self.packetsReceived = 0
 					self.currentFilename = None

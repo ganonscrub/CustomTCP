@@ -21,6 +21,8 @@ class RDTSender:
 		self.currentFilename = None
 		self.totalPacketsToSend = 0
 		self.currentPacketNumber = 0
+		self.startTime = None
+		self.ackCorruptRate = 0
 	
 	def getFileBytes( self, filename, nPacket ):
 		try:
@@ -91,28 +93,36 @@ class RDTSender:
 	def handleStateWaitAck0( self ):
 		try:
 			data, address = self.socket.recvfrom( 32 )
-			if data == b'ACK0':
+			
+			packet = bytearray( data )
+			corruptPacket( packet, self.ackCorruptRate )
+			
+			if packet == b'ACK0':
 				#print("SENDER: Got ACK0")
 				self.state = RDTSender.STATE_WAIT_1
 				self.currentPacketNumber += 1
 			else:
-				print("SENDER: Did not get ACK0")
+				pass#print("SENDER: Did not get ACK0")
 		except socket.timeout:
 			self.state = RDTSender.STATE_WAIT_0
 	
 	def handleStateWaitAck1( self ):
 		try:
 			data, address = self.socket.recvfrom( 32 )
-			if data == b'ACK1':
+			
+			packet = bytearray( data )
+			corruptPacket( packet, self.ackCorruptRate )
+			
+			if packet == b'ACK1':
 				#print("SENDER: Got ACK1")
 				self.state = RDTSender.STATE_WAIT_0
 				self.currentPacketNumber += 1
 			else:
-				print("SENDER: Did not get ACK1")
+				pass#print("SENDER: Did not get ACK1")
 		except socket.timeout:
 			self.state = RDTSender.STATE_WAIT_1
 		
-	def sendLoop( self ):
+	def sendLoop( self ):	
 		while True:
 			if self.isSending:
 				if self.state == RDTSender.STATE_WAIT_0:
@@ -125,6 +135,8 @@ class RDTSender:
 					self.handleStateWaitAck1()
 					
 				if self.currentPacketNumber >= self.totalPacketsToSend:
+					totalTime = time.time() - self.startTime
+					print( "Total time:", totalTime )
 					self.resetState()
 			else:
 				data = input("Type filename: ")
@@ -138,6 +150,7 @@ class RDTSender:
 						self.currentFilename = data
 						self.state = RDTSender.STATE_WAIT_0
 						self.isSending = True
+						self.startTime = time.time()
 					else:
 						print( "File not found" )
 				else:
