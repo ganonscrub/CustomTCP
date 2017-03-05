@@ -4,8 +4,6 @@ import sys
 from rdtsender import *
 from rdtreceiver import *
 
-global G_CORRUPT_SENDER_ACK_RATE, G_CORRUPT_RECEIVER_DATA_RATE
-
 if len(sys.argv) < 7:
 	print( "Usage: rdt.py [recv_host] [recv_port] [send_host] [send_port] [ack_corrupt_%] [data_corrupt_%]" )
 	sys.exit()
@@ -22,6 +20,5 @@ rdt.sender.ackCorruptRate = int(sys.argv[5])
 rdt.receiver.dataCorruptRate = int(sys.argv[6])
 print( "Sender ACK corrupt rate:", rdt.sender.ackCorruptRate )
 print( "Receiver data corrupt rate:", rdt.receiver.dataCorruptRate )
-
 
 rdt.sender.sendLoop()

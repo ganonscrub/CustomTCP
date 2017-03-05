@@ -18,10 +18,18 @@ def checksum( sequence, bytes ):
 	for i in range( len(bytes) ):
 		sum += bytes[i]
 	return sum % pow(2,16)
-	
+
 def getISO():
 	return datetime.datetime.now().isoformat()
 
 def corruptPacket( packet, chance ):	
 	if random.randint( 1, 100 ) <= chance:
 		packet[0] = 255
+		
+def isPacketCorrupt( sequence, packet ):			
+		chksum = checksum( sequence, packet[G_PACKET_DATASTART:] )
+		packetSum = packet[0] | (packet[1]<<8)
+		if chksum == packetSum:
+			return False
+		else:
+			return True

@@ -24,6 +24,12 @@ class RDTSender:
 		self.startTime = None
 		self.ackCorruptRate = 0
 	
+	def printProgress( self ):
+		if self.totalPacketsToSend > 0:
+			if self.currentPacketNumber % 100 == 0:
+				ratio = int( (self.currentPacketNumber / self.totalPacketsToSend) * 100 )
+				print( getISO(), "SENDER:", ratio, "percent of packets transmitted and ACK'd" )			
+	
 	def getFileBytes( self, filename, nPacket ):
 		try:
 			fin = open( filename, "rb" )
@@ -97,8 +103,9 @@ class RDTSender:
 			packet = bytearray( data )
 			corruptPacket( packet, self.ackCorruptRate )
 			
-			if packet == b'ACK0':
-				#print("SENDER: Got ACK0")
+			if packet[3:] == b'ACK' and not isPacketCorrupt( 0, packet ):
+				#print("SENDER: Got ACK0")					
+				self.printProgress()
 				self.state = RDTSender.STATE_WAIT_1
 				self.currentPacketNumber += 1
 			else:
@@ -113,8 +120,9 @@ class RDTSender:
 			packet = bytearray( data )
 			corruptPacket( packet, self.ackCorruptRate )
 			
-			if packet == b'ACK1':
+			if packet[3:] == b'ACK' and not isPacketCorrupt( 1, packet ):
 				#print("SENDER: Got ACK1")
+				self.printProgress()
 				self.state = RDTSender.STATE_WAIT_0
 				self.currentPacketNumber += 1
 			else:
@@ -136,7 +144,7 @@ class RDTSender:
 					
 				if self.currentPacketNumber >= self.totalPacketsToSend:
 					totalTime = time.time() - self.startTime
-					print( "Total time:", totalTime )
+					print( getISO(), "Total transmit time:", totalTime, "seconds" )
 					self.resetState()
 			else:
 				data = input("Type filename: ")
