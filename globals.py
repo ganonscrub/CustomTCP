@@ -1,41 +1,25 @@
-from enum import Enum
+import datetime
 
-PACKET_DATABYTES = 1024 # 1 kilobyte of data
-PACKET_SEQUENCEBYTES = 1
-PACKET_CHECKSUMBYTES = 2
-PACKET_MAXSIZE = PACKET_DATABYTES + PACKET_SEQUENCEBYTES + PACKET_CHECKSUMBYTES
+G_PACKET_CHECKSUMBYTES = 2
+G_PACKET_SEQUENCEBYTES = 1
+G_PACKET_DATABYTES = 1021
+G_PACKET_MAXSIZE = G_PACKET_CHECKSUMBYTES + G_PACKET_SEQUENCEBYTES + G_PACKET_DATABYTES
+G_PACKET_DATASTART = G_PACKET_MAXSIZE - G_PACKET_DATABYTES
 
-RECEIVE_HOST = "localhost"
-RECEIVE_PORT = 1337
+G_COMMON_FILE_BYTES = {}
+G_COMMON_FILE_BYTES["bmp"] = b'\x42\x4d'
+G_COMMON_FILE_BYTES["jpg"] = b'\xff\xd8'
+G_COMMON_FILE_BYTES["png"] = b'\x89\x50\x4e\x47'
 
-SEND_HOST = "localhost"
-SEND_PORT = 1337
+def checksum( sequence, bytes ):
+	sum = sequence
+	for i in range( len(bytes) ):
+		sum += bytes[i]
+	return sum % pow(2,16)
+	
+def getISO():
+	return datetime.datetime.now().isoformat()
 
-SOCK_RECEIVE = None
-SOCK_SEND = None
-
-SOCK_RECEIVE_TIMEOUT = 2.0
-SOCK_SEND_TIMEOUT = 0.5 # 1 second to be safe, could make this lower later
-
-MAX_SEND_RETRIES = 10 # if at first you don't succeed, try again
-
-# these will be used to detect incoming file types
-COMMON_FILE_BYTES = {}
-COMMON_FILE_BYTES["bmp"] = b'\x42\x4d'
-COMMON_FILE_BYTES["jpg"] = b'\xff\xd8'
-COMMON_FILE_BYTES["png"] = b'\x89\x50\x4e\x47'
-#COMMON_FILE_BYTES["mp4"] = b'\x\x'
-
-RECEIVE_STATE_WAIT0 = 0
-RECEIVE_STATE_WAIT1 = 1
-
-SEND_STATE_WAIT0 = 0
-SEND_STATE_WAITACK0 = 1
-SEND_STATE_WAIT1 = 2
-SEND_STATE_WAITACK1 = 3
-
-RECEIVER_STATE = RECEIVE_STATE_WAIT0
-SENDER_STATE = SEND_STATE_WAIT0
-
-SENDER_CORRUPT_RATE = 0 # percent
-RECEIVER_CORRUPT_RATE = 0 # percent
+def corruptPacket( packet, chance ):	
+	if random.randint( 1, 100 ) <= chance:
+		packet[0] = 255
