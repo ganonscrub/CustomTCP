@@ -1,7 +1,13 @@
 import socket
 import threading
+from time import sleep
+
+from PIL import Image # pip install image
+import cv2 # pip install opencv-python
 
 from globals import *
+from gui import display_image, create_window_image
+
 
 class RDTReceiver:
 	STATE_WAIT_0 = 2000
@@ -11,7 +17,7 @@ class RDTReceiver:
 	#the socket assumes the transmission is over
 	TIMEOUT = 2.0
 
-	def __init__( self, host, port ):
+	def __init__( self, host, port, showWindow ):
 		self.socket = socket.socket( socket.AF_INET, socket.SOCK_DGRAM )
 		self.socket.bind( (host, port) )
 		self.socket.settimeout( RDTReceiver.TIMEOUT )
@@ -23,7 +29,19 @@ class RDTReceiver:
 		self.packetsReceived = 0
 		self.currentFilename = None
 		self.dataCorruptRate = 0
-		
+
+		self.image_panel = None
+		self.panel_root = None
+		self.image_updated = False
+
+		self.max_width = 600
+		self.max_height = 600
+
+		if showWindow:
+			self.panel_root, self.image_panel = create_window_image()
+
+
+
 	def determineFileExtension( self, packet ):
 		if len( packet ) < 4:
 			return "FILE"
@@ -40,7 +58,26 @@ class RDTReceiver:
 		file = open( self.currentFilename, 'ab' )
 		file.write( data )
 		file.close()
-		
+
+		self.image_updated = True
+
+	def update_image(self):
+		try:
+			if self.image_updated:
+				# open cv can read corrupted files
+				image_cv = cv2.imread(self.currentFilename)
+				if image_cv is not None:
+					image = Image.frombytes('RGB', (image_cv.shape[1], image_cv.shape[0]), image_cv)
+
+					display_image(self.image_panel, image, self.max_width, self.max_height)
+
+				self.image_updated = False
+
+			self.panel_root.update()
+		except Exception as ex:
+			print(ex)
+
+
 	def makePacket( self, sequence, data ):
 		packet = bytearray()
 		
@@ -103,6 +140,7 @@ class RDTReceiver:
 					self.handleStateWait0( packet, address )
 				elif self.state == RDTReceiver.STATE_WAIT_1:
 					self.handleStateWait1( packet, address )
+
 			except socket.timeout:
 				if self.isReceiving:
 					print( "\n", getISO(), "RECEIVER: timed out, waiting for a new transmission; packets received:", self.packetsReceived )

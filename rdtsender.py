@@ -130,7 +130,7 @@ class RDTSender:
 		except socket.timeout:
 			self.state = RDTSender.STATE_WAIT_1
 		
-	def sendLoop( self ):	
+	def sendLoop( self, callback = None):
 		while True:
 			if self.isSending:
 				if self.state == RDTSender.STATE_WAIT_0:
@@ -146,6 +146,10 @@ class RDTSender:
 					totalTime = time.time() - self.startTime
 					print( getISO(), "Total transmit time:", totalTime, "seconds" )
 					self.resetState()
+
+
+				if callback is not None:
+					callback()
 			else:
 				data = input("Type filename: ")
 				
