@@ -9,7 +9,7 @@ class RDTSender:
 	STATE_WAITACK_0 = 1001
 	STATE_WAITACK_1 = 1003
 
-	TIMEOUT = 0.5
+	TIMEOUT = 0.03 # 30 milliseconds
 	
 	def __init__( self, host, port ):
 		self.socket = socket.socket( socket.AF_INET, socket.SOCK_DGRAM )
@@ -17,12 +17,14 @@ class RDTSender:
 		self.sendHost = host
 		self.sendPort = port
 		self.state = RDTSender.STATE_WAIT_0
+		self.doneSending = False
 		self.isSending = False
 		self.currentFilename = None
 		self.totalPacketsToSend = 0
 		self.currentPacketNumber = 0
 		self.startTime = None
-		self.ackCorruptRate = 0
+		self.ackPacketCorruptRate = 0
+		self.dataPacketDropRate = 0
 	
 	def printProgress( self ):
 		if self.totalPacketsToSend > 0:
@@ -87,13 +89,19 @@ class RDTSender:
 	def handleStateWait0( self ):
 		fileData = self.getFileBytes( self.currentFilename, self.currentPacketNumber )
 		packet = self.makePacket( 0, fileData )
-		self.sendToRemote( packet )
+		
+		if not randomTrueFromChance( self.dataPacketDropRate ):
+			self.sendToRemote( packet )
+		
 		self.state = RDTSender.STATE_WAITACK_0
 	
 	def handleStateWait1( self ):
 		fileData = self.getFileBytes( self.currentFilename, self.currentPacketNumber )
 		packet = self.makePacket( 1, fileData )
-		self.sendToRemote( packet )
+		
+		if not randomTrueFromChance( self.dataPacketDropRate ):
+			self.sendToRemote( packet )
+		
 		self.state = RDTSender.STATE_WAITACK_1
 	
 	def handleStateWaitAck0( self ):
@@ -101,16 +109,16 @@ class RDTSender:
 			data, address = self.socket.recvfrom( 32 )
 			
 			packet = bytearray( data )
-			corruptPacket( packet, self.ackCorruptRate )
+			corruptPacket( packet, self.ackPacketCorruptRate )
 			
 			if packet[3:] == b'ACK' and not isPacketCorrupt( 0, packet ):
-				#print("SENDER: Got ACK0")					
-				self.printProgress()
+				#self.printProgress()
 				self.state = RDTSender.STATE_WAIT_1
 				self.currentPacketNumber += 1
 			else:
-				pass#print("SENDER: Did not get ACK0")
-		except socket.timeout:
+				pass # state doesn't change, so this function will be run again on the next loop iteration
+				# this is where we can increment a triple ACK counter
+		except socket.timeout: # RDT3.0: if we timeout waiting for an ACK0, resend the 0 packet
 			self.state = RDTSender.STATE_WAIT_0
 	
 	def handleStateWaitAck1( self ):
@@ -118,20 +126,37 @@ class RDTSender:
 			data, address = self.socket.recvfrom( 32 )
 			
 			packet = bytearray( data )
-			corruptPacket( packet, self.ackCorruptRate )
+			corruptPacket( packet, self.ackPacketCorruptRate )
 			
 			if packet[3:] == b'ACK' and not isPacketCorrupt( 1, packet ):
-				#print("SENDER: Got ACK1")
-				self.printProgress()
+				#self.printProgress()
 				self.state = RDTSender.STATE_WAIT_0
 				self.currentPacketNumber += 1
 			else:
-				pass#print("SENDER: Did not get ACK1")
-		except socket.timeout:
+				pass # state doesn't change, so this function will be run again on the next loop iteration
+				# this is where we can increment a triple ACK counter
+		except socket.timeout: # RDT3.0: if we timeout waiting for an ACK1, resend the 1 packet
 			self.state = RDTSender.STATE_WAIT_1
 		
 	def sendLoop( self ):	
-		while True:
+		data = input("Type filename: ")
+				
+		if data[-4] == '.':
+			if os.path.isfile( data ):
+				size = self.getFileSize( data )
+				self.totalPacketsToSend = int(size / G_PACKET_DATABYTES) + 1
+				print( "Total packets:", self.totalPacketsToSend, "\n" )
+				self.currentPacketNumber = 0
+				self.currentFilename = data
+				self.state = RDTSender.STATE_WAIT_0
+				self.isSending = True
+				self.startTime = time.time()
+			else:
+				print( "File not found" )
+		else:
+			print( "Must enter a filename" )
+	
+		while self.isSending:
 			if self.isSending:
 				if self.state == RDTSender.STATE_WAIT_0:
 					self.handleStateWait0()					
@@ -145,21 +170,5 @@ class RDTSender:
 				if self.currentPacketNumber >= self.totalPacketsToSend:
 					totalTime = time.time() - self.startTime
 					print( getISO(), "Total transmit time:", totalTime, "seconds" )
-					self.resetState()
-			else:
-				data = input("Type filename: ")
-				
-				if data[-4] == '.':
-					if os.path.isfile( data ):
-						size = self.getFileSize( data )
-						self.totalPacketsToSend = int(size / G_PACKET_DATABYTES) + 1
-						print( "Total packets:", self.totalPacketsToSend )
-						self.currentPacketNumber = 0
-						self.currentFilename = data
-						self.state = RDTSender.STATE_WAIT_0
-						self.isSending = True
-						self.startTime = time.time()
-					else:
-						print( "File not found" )
-				else:
-					print( "Must enter a filename" )
+					print( "=== SEND FINISHED ===" )
+					self.resetState() # this will set self.isSending to false, among other things

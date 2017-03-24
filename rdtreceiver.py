@@ -8,8 +8,8 @@ class RDTReceiver:
 	STATE_WAIT_1 = 2001
 	
 	#if socket does not receive a packet after this interval,
-	#the socket assumes the transmission is over
-	TIMEOUT = 2.0
+	#the socket assumes the transmission is finished
+	TIMEOUT = 3.0
 
 	def __init__( self, host, port ):
 		self.socket = socket.socket( socket.AF_INET, socket.SOCK_DGRAM )
@@ -22,7 +22,8 @@ class RDTReceiver:
 		self.isReceiving = False
 		self.packetsReceived = 0
 		self.currentFilename = None
-		self.dataCorruptRate = 0
+		self.dataPacketCorruptRate = 0
+		self.ackPacketDropRate = 0
 		
 	def determineFileExtension( self, packet ):
 		if len( packet ) < 4:
@@ -63,33 +64,39 @@ class RDTReceiver:
 		if self.isReceiving == False:
 			self.currentFilename = 'output_' + getISO()[:19].replace(':','_') + '.'
 			self.currentFilename += self.determineFileExtension( data[G_PACKET_DATASTART:] )
-			print( "\n", getISO(), "RECEIVER: Packet received, awaiting the rest of the transmission..." )
+			print( getISO(), "RECEIVER: Packet received, awaiting the rest of the transmission..." )
 			
 			self.isReceiving = True
 			
-		if data[2] == 0 and not isPacketCorrupt( 0, data ): # data[2] is the sequence byte
-			#print( "RECEIVER: Got SEQ0" )
-			self.socket.sendto( self.makePacket( 0, b'ACK' ), addr )
+		if data[2] == 0 and not isPacketCorrupt( 0, data ): # data[2] is the sequence byte			
+			# drop ACK packet based on user-supplied drop percentage
+			if not randomTrueFromChance( self.ackPacketDropRate ): # drop packet if we get a True
+				self.socket.sendto( self.makePacket( 0, b'ACK' ), addr )
+				
 			self.packetsReceived += 1
 			self.appendToFile( data[G_PACKET_DATASTART:] )
 			self.state = RDTReceiver.STATE_WAIT_1
-		else:
-			#print( "RECEIVER: Did not get SEQ0" )
-			self.socket.sendto( self.makePacket( 1, b'ACK' ), addr )
+		else:			
+			# drop ACK packet based on user-supplied drop percentage
+			if not randomTrueFromChance( self.ackPacketDropRate ):
+				self.socket.sendto( self.makePacket( 1, b'ACK' ), addr )
 	
 	def handleStateWait1( self, data, addr ):
 		if self.isReceiving == False:
 			print( "\n", getISO(), "RECEIVER: We have some very serious problems" )
 	
-		if data[2] == 1 and not isPacketCorrupt( 1, data ): # data[2] is the sequence byte
-			#print( "RECEIVER: Got SEQ1" )
-			self.socket.sendto( self.makePacket( 1, b'ACK' ), addr )
+		if data[2] == 1 and not isPacketCorrupt( 1, data ): # data[2] is the sequence byte			
+			# drop ACK packet based on user-supplied drop percentage
+			if not randomTrueFromChance( self.ackPacketDropRate ): # drop packet if we get a True
+				self.socket.sendto( self.makePacket( 1, b'ACK' ), addr )
+				
 			self.packetsReceived += 1
 			self.appendToFile( data[G_PACKET_DATASTART:] )
 			self.state = RDTReceiver.STATE_WAIT_0
-		else:
-			#print( "RECEIVER: Did not get SEQ1" )
-			self.socket.sendto( self.makePacket( 0, b'ACK' ), addr )
+		else:			
+			# drop ACK packet based on user-supplied drop percentage
+			if not randomTrueFromChance( self.ackPacketDropRate ):
+				self.socket.sendto( self.makePacket( 0, b'ACK' ), addr )
 	
 	def receiveLoop( self ):
 		while True:
@@ -97,7 +104,7 @@ class RDTReceiver:
 				data, address = self.socket.recvfrom( G_PACKET_MAXSIZE )
 				
 				packet = bytearray( data )
-				corruptPacket( packet, self.dataCorruptRate )
+				corruptPacket( packet, self.dataPacketCorruptRate )
 				
 				if self.state == RDTReceiver.STATE_WAIT_0:
 					self.handleStateWait0( packet, address )

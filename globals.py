@@ -13,6 +13,7 @@ G_COMMON_FILE_BYTES["bmp"] = b'\x42\x4d'
 G_COMMON_FILE_BYTES["jpg"] = b'\xff\xd8'
 G_COMMON_FILE_BYTES["png"] = b'\x89\x50\x4e\x47'
 
+# custom checksum function so we aren't just copying the algorithm from RFC 793
 def checksum( sequence, bytes ):
 	sum = sequence
 	for i in range( len(bytes) ):
@@ -25,6 +26,12 @@ def getISO():
 def corruptPacket( packet, chance ):	
 	if random.randint( 1, 100 ) <= chance:
 		packet[0] = 255
+		
+def randomTrueFromChance( chance ): # used for dropping packets
+	if random.randint( 1, 100 ) <= chance:
+		return True
+	else:
+		return False
 		
 def isPacketCorrupt( sequence, packet ):			
 		chksum = checksum( sequence, packet[G_PACKET_DATASTART:] )
