@@ -112,7 +112,7 @@ class RDTSender:
 			corruptPacket( packet, self.ackPacketCorruptRate )
 			
 			if packet[3:] == b'ACK' and not isPacketCorrupt( 0, packet ):
-				#self.printProgress()
+				self.printProgress()
 				self.state = RDTSender.STATE_WAIT_1
 				self.currentPacketNumber += 1
 			else:
@@ -129,7 +129,7 @@ class RDTSender:
 			corruptPacket( packet, self.ackPacketCorruptRate )
 			
 			if packet[3:] == b'ACK' and not isPacketCorrupt( 1, packet ):
-				#self.printProgress()
+				self.printProgress()
 				self.state = RDTSender.STATE_WAIT_0
 				self.currentPacketNumber += 1
 			else:
