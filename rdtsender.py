@@ -157,7 +157,6 @@ class RDTSender:
 			print( "Must enter a filename" )
 	
 		while self.isSending:
-			if self.isSending:
 				if self.state == RDTSender.STATE_WAIT_0:
 					self.handleStateWait0()					
 				elif self.state == RDTSender.STATE_WAIT_1:
