@@ -1,7 +1,9 @@
 import socket
 import threading
+from time import sleep
 
 from globals import *
+
 
 class RDTReceiver:
 	STATE_WAIT_0 = 2000
@@ -41,7 +43,26 @@ class RDTReceiver:
 		file = open( self.currentFilename, 'ab' )
 		file.write( data )
 		file.close()
-		
+
+		self.image_updated = True
+
+	def update_image(self):
+		try:
+			if self.image_updated:
+				# open cv can read corrupted files
+				image_cv = cv2.imread(self.currentFilename)
+				if image_cv is not None:
+					image = Image.frombytes('RGB', (image_cv.shape[1], image_cv.shape[0]), image_cv)
+
+					display_image(self.image_panel, image, self.max_width, self.max_height)
+
+				self.image_updated = False
+
+			self.panel_root.update()
+		except Exception as ex:
+			print(ex)
+
+
 	def makePacket( self, sequence, data ):
 		packet = bytearray()
 		
@@ -110,6 +131,7 @@ class RDTReceiver:
 					self.handleStateWait0( packet, address )
 				elif self.state == RDTReceiver.STATE_WAIT_1:
 					self.handleStateWait1( packet, address )
+
 			except socket.timeout:
 				if self.isReceiving:
 					print( "\n", getISO(), "RECEIVER: timed out, waiting for a new transmission; packets received:", self.packetsReceived )

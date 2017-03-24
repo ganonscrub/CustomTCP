@@ -137,26 +137,9 @@ class RDTSender:
 				# this is where we can increment a triple ACK counter
 		except socket.timeout: # RDT3.0: if we timeout waiting for an ACK1, resend the 1 packet
 			self.state = RDTSender.STATE_WAIT_1
-		
-	def sendLoop( self ):	
-		data = input("Type filename: ")
-				
-		if data[-4] == '.':
-			if os.path.isfile( data ):
-				size = self.getFileSize( data )
-				self.totalPacketsToSend = int(size / G_PACKET_DATABYTES) + 1
-				print( "Total packets:", self.totalPacketsToSend, "\n" )
-				self.currentPacketNumber = 0
-				self.currentFilename = data
-				self.state = RDTSender.STATE_WAIT_0
-				self.isSending = True
-				self.startTime = time.time()
-			else:
-				print( "File not found" )
-		else:
-			print( "Must enter a filename" )
-	
-		while self.isSending:
+			
+	def sendLoop( self, callback = None):
+		while True:
 			if self.isSending:
 				if self.state == RDTSender.STATE_WAIT_0:
 					self.handleStateWait0()					
@@ -172,3 +155,20 @@ class RDTSender:
 					print( getISO(), "Total transmit time:", totalTime, "seconds" )
 					print( "=== SEND FINISHED ===" )
 					self.resetState() # this will set self.isSending to false, among other things
+			else:
+				data = input("Type filename: ")
+				
+				if data[-4] == '.':
+					if os.path.isfile( data ):
+						size = self.getFileSize( data )
+						self.totalPacketsToSend = int(size / G_PACKET_DATABYTES) + 1
+						print( "Total packets:", self.totalPacketsToSend )
+						self.currentPacketNumber = 0
+						self.currentFilename = data
+						self.state = RDTSender.STATE_WAIT_0
+						self.isSending = True
+						self.startTime = time.time()
+					else:
+						print( "File not found" )
+				else:
+					print( "Must enter a filename" )
