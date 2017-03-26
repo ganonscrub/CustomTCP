@@ -4,6 +4,7 @@ from time import sleep
 
 from globals import *
 
+from gui import display_image, create_window_image, read_image
 
 class RDTReceiver:
 	STATE_WAIT_0 = 2000
@@ -13,7 +14,7 @@ class RDTReceiver:
 	#the socket assumes the transmission is finished
 	TIMEOUT = 3.0
 
-	def __init__( self, host, port ):
+	def __init__( self, host, port, showWindow):
 		self.socket = socket.socket( socket.AF_INET, socket.SOCK_DGRAM )
 		self.socket.bind( (host, port) )
 		self.socket.settimeout( RDTReceiver.TIMEOUT )
@@ -26,7 +27,18 @@ class RDTReceiver:
 		self.currentFilename = None
 		self.dataPacketCorruptRate = 0
 		self.ackPacketDropRate = 0
-		
+
+		self.image_panel = None
+		self.panel_root = None
+		self.image_updated = False
+
+		self.max_width = 600
+		self.max_height = 600
+
+		if showWindow:
+			self.panel_root, self.image_panel = create_window_image()
+
+
 	def determineFileExtension( self, packet ):
 		if len( packet ) < 4:
 			return "FILE"
@@ -46,14 +58,17 @@ class RDTReceiver:
 
 		self.image_updated = True
 
-	def update_image(self):
-		try:
-			if self.image_updated:
-				# open cv can read corrupted files
-				image_cv = cv2.imread(self.currentFilename)
-				if image_cv is not None:
-					image = Image.frombytes('RGB', (image_cv.shape[1], image_cv.shape[0]), image_cv)
+	def update_image(self, force=False):
+		if self.panel_root is None:
+			return
 
+		try:
+			if self.image_updated or force:
+
+				# open cv can read corrupted files
+				image = read_image(self.currentFilename)
+
+				if image is not None:
 					display_image(self.image_panel, image, self.max_width, self.max_height)
 
 				self.image_updated = False

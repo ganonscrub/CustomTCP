@@ -165,9 +165,14 @@ class RDTSender:
 					self.handleStateWaitAck0()						
 				elif self.state == RDTSender.STATE_WAITACK_1:
 					self.handleStateWaitAck1()
-					
+
+				if callback is not None:
+					callback()
+
 				if self.currentPacketNumber >= self.totalPacketsToSend:
 					totalTime = time.time() - self.startTime
 					print( getISO(), "Total transmit time:", totalTime, "seconds" )
 					print( "=== SEND FINISHED ===" )
 					self.resetState() # this will set self.isSending to false, among other things
+
+					callback(True)

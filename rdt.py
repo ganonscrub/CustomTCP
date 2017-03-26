@@ -5,15 +5,20 @@ from rdtsender import *
 from rdtreceiver import *
 
 if len(sys.argv) < 4:
-	print( "Usage: rdt.py [recv_host] [send_host] [app_port]" )
+	print( "Usage: rdt.py [recv_host] [send_host] [app_port] <show_window>" )
 	sys.exit()
 
+showWindow = False
+if len(sys.argv) == 5:
+	if sys.argv[4] == '1':
+		showWindow = True
+
 class RDT:
-	def __init__( self, recv_host, send_host, app_port ):
+	def __init__( self, recv_host, send_host, app_port, showWindow ):
 		self.sender = RDTSender( send_host, app_port )
-		self.receiver = RDTReceiver( recv_host, app_port )
+		self.receiver = RDTReceiver( recv_host, app_port, showWindow )
 		
-rdt = RDT( sys.argv[1], (sys.argv[2]), int(sys.argv[3]) )
+rdt = RDT( sys.argv[1], (sys.argv[2]), int(sys.argv[3]), showWindow )
 
 success = False
 
@@ -48,7 +53,7 @@ try:
 			rdt.sender.ackPacketCorruptRate = int( input( "Sender ACK corrupt rate: " ) )
 			rdt.sender.dataPacketDropRate = int( input( "Sender data packet drop rate: " ) )\
 			
-			rdt.sender.sendLoop()
+			rdt.sender.sendLoop(rdt.receiver.update_image)
 		except ValueError:
 			print( "Invalid user input. Please try again." )
 except (KeyboardInterrupt, EOFError): #EOFError thrown when Ctrl+C pressed while input() is waiting for user input
