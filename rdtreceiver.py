@@ -4,7 +4,6 @@ from time import sleep
 
 from globals import *
 
-
 class RDTReceiver:
 	STATE_WAIT_0 = 2000
 	STATE_WAIT_1 = 2001
@@ -26,6 +25,7 @@ class RDTReceiver:
 		self.currentFilename = None
 		self.dataPacketCorruptRate = 0
 		self.ackPacketDropRate = 0
+		self.expectedSeqNum = 0
 		
 	def determineFileExtension( self, packet ):
 		if len( packet ) < 4:
@@ -45,23 +45,6 @@ class RDTReceiver:
 		file.close()
 
 		self.image_updated = True
-
-	def update_image(self):
-		try:
-			if self.image_updated:
-				# open cv can read corrupted files
-				image_cv = cv2.imread(self.currentFilename)
-				if image_cv is not None:
-					image = Image.frombytes('RGB', (image_cv.shape[1], image_cv.shape[0]), image_cv)
-
-					display_image(self.image_panel, image, self.max_width, self.max_height)
-
-				self.image_updated = False
-
-			self.panel_root.update()
-		except Exception as ex:
-			print(ex)
-
 
 	def makePacket( self, sequence, data ):
 		packet = bytearray()
@@ -139,3 +122,52 @@ class RDTReceiver:
 					self.packetsReceived = 0
 					self.currentFilename = None
 					self.state = RDTReceiver.STATE_WAIT_0
+					
+	def receiveLoop2( self ):
+		while True:
+			try:
+				data, address = self.socket.recvfrom( G_PACKET_MAXSIZE )
+				
+				packet = bytearray( data )
+				corruptPacket( packet, self.dataPacketCorruptRate )
+				
+				if self.isReceiving == False:
+					self.currentFilename = 'output_' + getISO()[:19].replace(':','_') + '.'
+					self.currentFilename += self.determineFileExtension( data[G_PACKET_DATASTART:] )
+					print( getISO(), "RECEIVER: Packet received, awaiting the rest of the transmission..." )
+					
+					self.isReceiving = True
+					
+				if packet[2] == self.expectedSeqNum and not isPacketCorrupt( self.expectedSeqNum, packet ):
+					#deliverPacket
+					self.socket.sendto( self.makePacket( nextSeqNum, b'ACK' ), address )
+					nextSeqNum += 1
+				else:
+					if not randomTrueFromChance( self.ackPacketDropRate ):
+						pass
+						#self.socket.sendto( self.makePacket(
+				
+			except socket.timeout:
+				if self.isReceiving:
+					print( "\n", getISO(), "RECEIVER: timed out, waiting for a new transmission; packets received:", self.packetsReceived )
+					self.isReceiving = False
+					self.packetsReceived = 0
+					self.currentFilename = None
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					

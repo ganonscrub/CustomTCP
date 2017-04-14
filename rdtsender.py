@@ -14,6 +14,7 @@ class RDTSender:
 	def __init__( self, host, port ):
 		self.socket = socket.socket( socket.AF_INET, socket.SOCK_DGRAM )
 		self.socket.settimeout( RDTSender.TIMEOUT )
+		#self.socket.setblocking( False )
 		self.sendHost = host
 		self.sendPort = port
 		self.state = RDTSender.STATE_WAIT_0
@@ -25,6 +26,9 @@ class RDTSender:
 		self.startTime = None
 		self.ackPacketCorruptRate = 0
 		self.dataPacketDropRate = 0
+		self.window = []
+		self.windowSize = G_SENDER_WINDOW_SIZE
+		self.base = 0
 	
 	def printProgress( self ):
 		if self.totalPacketsToSend > 0:
@@ -189,3 +193,7 @@ class RDTSender:
 						print( "File not found" )
 				else:
 					print( "Must enter a filename" )
+	
+	def sendLoop2( self ):
+		pass
+		#sendPackets
