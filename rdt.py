@@ -15,6 +15,12 @@ class RDT:
 		
 rdt = RDT( sys.argv[1], (sys.argv[2]), int(sys.argv[3]) )
 
+print( "Receive host (this machine):", sys.argv[1] )
+print( "Send host (remote machine):", sys.argv[2] )
+print( "Application port: ", sys.argv[3] )
+print( "Sender window size:", rdt.sender.windowSize )
+print( "" )
+
 success = False
 
 print( "When entering the following percentages, please use whole integers\n" )
