@@ -161,7 +161,9 @@ class RDTSender:
 					fileData = self.getFileBytes( self.currentFilename, self.base + self.windowSize - 1 )
 					newPacket = assemblePacket( self.base + self.windowSize - 1, fileData )
 					self.window.append( newPacket )
-					self.sendToRemote( newPacket )
+					
+					if not randomTrueFromChance( self.dataPacketDropRate ):
+						self.sendToRemote( newPacket )
 					self.printProgress()
 				
 		except socket.timeout:
