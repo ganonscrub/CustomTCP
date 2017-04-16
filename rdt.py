@@ -5,20 +5,15 @@ from rdtsender import *
 from rdtreceiver import *
 
 if len(sys.argv) < 4:
-	print( "Usage: rdt.py [recv_host] [send_host] [app_port] <show_window>" )
+	print( "Usage: rdt.py [recv_host] [send_host] [app_port]" )
 	sys.exit()
 
-showWindow = False
-if len(sys.argv) == 5:
-	if sys.argv[4] == '1':
-		showWindow = True
-
 class RDT:
-	def __init__( self, recv_host, send_host, app_port, showWindow ):
+	def __init__( self, recv_host, send_host, app_port ):
 		self.sender = RDTSender( send_host, app_port )
-		self.receiver = RDTReceiver( recv_host, app_port, showWindow )
+		self.receiver = RDTReceiver( recv_host, app_port )
 		
-rdt = RDT( sys.argv[1], (sys.argv[2]), int(sys.argv[3]), showWindow )
+rdt = RDT( sys.argv[1], (sys.argv[2]), int(sys.argv[3]) )
 
 print( "Receive host (this machine):", sys.argv[1] )
 print( "Send host (remote machine):", sys.argv[2] )

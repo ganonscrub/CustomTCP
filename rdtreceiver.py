@@ -4,19 +4,16 @@ from time import sleep
 
 from globals import *
 
-class RDTReceiver:
-	STATE_WAIT_0 = 2000
-	STATE_WAIT_1 = 2001
-	
+class RDTReceiver:	
 	#if socket does not receive a packet after this interval,
 	#the socket assumes the transmission is finished
 	TIMEOUT = 3.0
 
-	def __init__( self, host, port, showWindow):
+	def __init__( self, host, port ):
 		self.socket = socket.socket( socket.AF_INET, socket.SOCK_DGRAM )
 		self.socket.bind( (host, port) )
 		self.socket.settimeout( RDTReceiver.TIMEOUT )
-		self.state = RDTReceiver.STATE_WAIT_0
+		self.state = None # doesn't really apply to this phase
 		self.thread = threading.Thread( name="receive", target=self.receiveLoop )
 		self.thread.daemon = True
 		self.thread.start()
