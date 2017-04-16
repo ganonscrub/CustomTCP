@@ -21,7 +21,6 @@ class RDTSender:
 		self.isSending = False
 		self.currentFilename = None
 		self.totalPacketsToSend = 0
-		self.currentPacketNumber = 0
 		self.startTime = None
 		self.ackPacketCorruptRate = 0
 		self.dataPacketDropRate = 0
@@ -32,8 +31,8 @@ class RDTSender:
 	
 	def printProgress( self ):
 		if self.totalPacketsToSend > 0:
-			if self.currentPacketNumber % 100 == 0:
-				ratio = int( (self.currentPacketNumber / self.totalPacketsToSend) * 100 )
+			if self.base % 100 == 0:
+				ratio = int( (self.base / self.totalPacketsToSend) * 100 )
 				print( getISO(), "SENDER:", ratio, "percent of packets transmitted and ACK'd" )			
 	
 	def getFileBytes( self, filename, nPacket ):
@@ -162,6 +161,7 @@ class RDTSender:
 					# append the next packet to the window
 					fileData = self.getFileBytes( self.currentFilename, self.base + self.windowSize - 1 )
 					self.window.append( assemblePacket( self.base + self.windowSize - 1, fileData ) )
+					self.printProgress()
 				
 		except socket.timeout:
 			if G_LOSS_RECOVERY_ENABLED:

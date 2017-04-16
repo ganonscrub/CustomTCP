@@ -21,7 +21,6 @@ class RDTReceiver:
 		self.thread.daemon = True
 		self.thread.start()
 		self.isReceiving = False
-		self.packetsReceived = 0
 		self.currentFilename = None
 		self.dataPacketCorruptRate = 0
 		self.ackPacketDropRate = 0
@@ -115,7 +114,7 @@ class RDTReceiver:
 
 			except socket.timeout:
 				if self.isReceiving:
-					#print( "\n", getISO(), "RECEIVER: timed out, waiting for a new transmission; packets received:", self.packetsReceived )
+					print( "\n", getISO(), "RECEIVER: timed out, waiting for a new transmission; packets received:", self.expectedSeqNum )
 					self.isReceiving = False
-					self.packetsReceived = 0
+					self.expectedSeqNum = 0
 					self.currentFilename = None
