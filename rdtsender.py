@@ -159,7 +159,9 @@ class RDTSender:
 					
 					# append the next packet to the window
 					fileData = self.getFileBytes( self.currentFilename, self.base + self.windowSize - 1 )
-					self.window.append( assemblePacket( self.base + self.windowSize - 1, fileData ) )
+					newPacket = assemblePacket( self.base + self.windowSize - 1, fileData )
+					self.window.append( newPacket )
+					self.sendToRemote( newPacket )
 					self.printProgress()
 				
 		except socket.timeout:
