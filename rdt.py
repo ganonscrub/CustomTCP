@@ -52,7 +52,8 @@ try:
 			print( "\n=== SENDER CONFIGURATION ===" )
 			
 			rdt.sender.ackPacketCorruptRate = int( input( "Sender ACK corrupt rate: " ) )
-			rdt.sender.dataPacketDropRate = int( input( "Sender data packet drop rate: " ) )\
+			rdt.sender.dataPacketDropRate = int( input( "Sender data packet drop rate: " ) )
+			G_SENDER_WINDOW_SIZE = int( input( "Sender window size: " ) )
 			
 			rdt.sender.sendLoop()
 		except ValueError:

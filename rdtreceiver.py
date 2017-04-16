@@ -93,7 +93,10 @@ class RDTReceiver:
 				info = getAssembledPacketInfo( packet )
 				seqNum = info['seqnumInt']
 				self.expectedSeqNum = 0
-				if not self.expectedSeqNum == seqNum or isAssembledPacketCorrupt( info['seqnumBytes'], data ):
+				if not self.expectedSeqNum == seqNum or isAssembledPacketCorrupt( info['seqnumBytes'], packet ):
+					if not randomTrueFromChance( self.ackPacketDropRate ):
+						# 255 is a safe number if the first packet is corrupt
+						self.socket.sendto( assemblePacket( 255, b'ACK' ), address )
 					continue
 				else:				
 					self.currentFilename = 'output_' + getISO()[:19].replace(':','_') + '.'
@@ -108,17 +111,25 @@ class RDTReceiver:
 				while self.isReceiving:
 					data, address = self.socket.recvfrom( G_PACKET_MAXSIZE )
 					
+					packet = bytearray( data )
+					corruptPacket( packet, self.dataPacketCorruptRate )
+					
 					info = getAssembledPacketInfo( data )
 					seqNum = info['seqnumInt']
-					if self.expectedSeqNum == seqNum and not isAssembledPacketCorrupt( info['seqnumBytes'], data ):
+					if self.expectedSeqNum == seqNum and not isAssembledPacketCorrupt( info['seqnumBytes'], packet ):
 						self.appendToFile( info['data'] )
 						self.expectedSeqNum += 1
-					else:
 						if not randomTrueFromChance( self.ackPacketDropRate ):
 							self.socket.sendto( assemblePacket( info['seqnum'], b'ACK' ), address )
-					
-					if not randomTrueFromChance( self.ackPacketDropRate ):
-						self.socket.sendto( assemblePacket( info['seqnum'], b'ACK' ), address )
+					else:
+						# if we've already received this seqNum, ACK again in case the ACK was lost
+						if seqNum < self.expectedSeqNum:
+							if not randomTrueFromChance( self.ackPacketDropRate ):
+								self.socket.sendto( assemblePacket( seqNum, b'ACK' ), address )
+						# if we haven't received it, it's out of order; ACK last received packet
+						else:
+							if not randomTrueFromChance( self.ackPacketDropRate ):
+								self.socket.sendto( assemblePacket( self.expectedSeqNum - 1, b'ACK' ), address )
 
 			except socket.timeout:
 				if self.isReceiving:

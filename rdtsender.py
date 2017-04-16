@@ -124,7 +124,6 @@ class RDTSender:
 		pass
 			
 	def handleStateSendWait( self ):
-		print( "handleStateSendWait" )
 		success = False
 		
 		while not success:
@@ -174,7 +173,7 @@ class RDTSender:
 				info = getAssembledPacketInfo( packet )
 				seqNum = info['seqnumInt']
 				
-				if not seqNum == self.base or isAssembledPacketCorrupt( info['seqnumBytes'], data ):
+				if not seqNum == self.base or isAssembledPacketCorrupt( info['seqnumBytes'], packet ):
 					print( "Out-of-order or corrupt packet", seqNum )
 					continue
 				else:
@@ -197,6 +196,8 @@ class RDTSender:
 			self.state = RDTSender.STATE_SEND_PACKETS
 		
 	def sendLoop( self ):	
+		self.windowSize = G_SENDER_WINDOW_SIZE
+	
 		self.handleStateSendWait()
 	
 		while self.isSending:
