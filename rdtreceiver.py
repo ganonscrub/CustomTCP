@@ -91,30 +91,34 @@ class RDTReceiver:
 				packet = bytearray( data )
 				corruptPacket( packet, self.dataPacketCorruptRate )
 				info = getAssembledPacketInfo( packet )
-				seqNum = int.from_bytes(info['seqnum'],byteorder=G_PACKET_SEQNUM_BYTE_ORDER)				
+				seqNum = info['seqnumInt']
 				self.expectedSeqNum = 0
 				if not self.expectedSeqNum == seqNum or isAssembledPacketCorrupt( info['seqnumBytes'], data ):
 					continue
-				
-				if not self.isReceiving:
+				else:				
 					self.currentFilename = 'output_' + getISO()[:19].replace(':','_') + '.'
 					self.currentFilename += self.determineFileExtension( data[G_PACKET_DATASTART:] )
 					print( getISO(), "RECEIVER: Packet received, awaiting the rest of the transmission..." )
+					self.appendToFile( info['data'] )
+					self.expectedSeqNum += 1
 					self.isReceiving = True
+					if not randomTrueFromChance( self.ackPacketDropRate ):
+						self.socket.sendto( assemblePacket( info['seqnumInt'], b'ACK' ), address )
 				
 				while self.isReceiving:
 					data, address = self.socket.recvfrom( G_PACKET_MAXSIZE )
 					
 					info = getAssembledPacketInfo( data )
-					seqNum = int.from_bytes(info['seqnum'],byteorder=G_PACKET_SEQNUM_BYTE_ORDER)
+					seqNum = info['seqnumInt']
 					if self.expectedSeqNum == seqNum and not isAssembledPacketCorrupt( info['seqnumBytes'], data ):
 						self.appendToFile( info['data'] )
 						self.expectedSeqNum += 1
 					else:
-						print( "RECEIVER: out of order packet", seqNum )
+						if not randomTrueFromChance( self.ackPacketDropRate ):
+							self.socket.sendto( assemblePacket( info['seqnum'], b'ACK' ), address )
 					
 					if not randomTrueFromChance( self.ackPacketDropRate ):
-						self.socket.sendto( assemblePacket(info['seqnum'],b'ACK'),  address )
+						self.socket.sendto( assemblePacket( info['seqnum'], b'ACK' ), address )
 
 			except socket.timeout:
 				if self.isReceiving:

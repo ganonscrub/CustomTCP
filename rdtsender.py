@@ -71,6 +71,7 @@ class RDTSender:
 		self.window = []
 		self.windowSize = G_SENDER_WINDOW_SIZE
 		self.base = 0
+		self.nextSeqNum = self.base + self.windowSize
 	
 	def makePacket( self, sequence, data ):
 		packet = bytearray()
@@ -155,7 +156,12 @@ class RDTSender:
 	
 	def handleStateSendPackets( self ):
 		for i in range( self.windowSize ):
-			self.sendToRemote( self.window[i] )
+			# randomly drop packets according to drop rate variable
+			if not randomTrueFromChance( self.dataPacketDropRate ):
+				# don't attempt to send more packets than there are to send
+				if self.base + i < self.totalPacketsToSend:
+					self.sendToRemote( self.window[i] )
+				
 		self.state = RDTSender.STATE_ACK_WAIT
 		
 	def handleStateAckWait( self ):
@@ -164,24 +170,28 @@ class RDTSender:
 				data, address = self.socket.recvfrom( G_PACKET_ACK_MAXSIZE )
 			
 				packet = bytearray( data )
+				corruptPacket( packet, self.ackPacketCorruptRate )
 				info = getAssembledPacketInfo( packet )
-				seqNum = int.from_bytes(info['seqnum'],byteorder=G_PACKET_SEQNUM_BYTE_ORDER)
+				seqNum = info['seqnumInt']
 				
-				if seqNum == self.base:
-					self.window.pop(0) # get rid of first element in our buffer
+				if not seqNum == self.base or isAssembledPacketCorrupt( info['seqnumBytes'], data ):
+					print( "Out-of-order or corrupt packet", seqNum )
+					continue
+				else:
+					# get rid of first element in our buffer
+					self.window.pop(0)
 					
 					self.base += 1
+					self.nextSeqNum += 1
 					
 					if self.base == self.totalPacketsToSend:
 						print( "Sent all the packets!" )
 						self.isSending = False
 						return
-						
+					
+					# append the next packet to the window
 					fileData = self.getFileBytes( self.currentFilename, self.base + self.windowSize - 1 )
 					self.window.append( assemblePacket( self.base + self.windowSize - 1, fileData ) )
-					
-				else:
-					print( "Out-of-order packet", seqNum )
 				
 		except socket.timeout:
 			self.state = RDTSender.STATE_SEND_PACKETS
@@ -198,4 +208,4 @@ class RDTSender:
 		totalTime = time.time() - self.startTime
 		print( getISO(), "Total transmit time:", totalTime, "seconds" )
 		print( "=== SEND FINISHED ===" )
-		self.resetState() # this will set self.isSending to false, among other things
+		self.resetState()
