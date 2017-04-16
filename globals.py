@@ -45,7 +45,9 @@ def getISO():
 
 def corruptPacket( packet, chance ):	
 	if random.randint( 1, 100 ) <= chance:
-		packet[0] = 255
+		# ensures corruption, as first two bytes (checksum) cannot both be 0
+		packet[0] = 0
+		packet[1] = 0
 		
 def randomTrueFromChance( chance ): # used for dropping packets
 	if random.randint( 1, 100 ) <= chance:
