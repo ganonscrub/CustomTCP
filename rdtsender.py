@@ -154,7 +154,6 @@ class RDTSender:
 					self.nextSeqNum += 1
 					
 					if self.base == self.totalPacketsToSend:
-						print( "Sent all the packets!" )
 						self.isSending = False
 						return
 					

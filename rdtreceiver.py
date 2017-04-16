@@ -114,7 +114,7 @@ class RDTReceiver:
 
 			except socket.timeout:
 				if self.isReceiving:
-					print( "\n", getISO(), "RECEIVER: timed out, waiting for a new transmission; packets received:", self.expectedSeqNum )
+					#print( "\n", getISO(), "RECEIVER: timed out, waiting for a new transmission; packets received:", self.expectedSeqNum )
 					self.isReceiving = False
 					self.expectedSeqNum = 0
 					self.currentFilename = None
