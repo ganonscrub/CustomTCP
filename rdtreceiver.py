@@ -4,8 +4,6 @@ from time import sleep
 
 from globals import *
 
-from gui import display_image, create_window_image, read_image
-
 class RDTReceiver:
 	STATE_WAIT_0 = 2000
 	STATE_WAIT_1 = 2001
@@ -23,22 +21,11 @@ class RDTReceiver:
 		self.thread.daemon = True
 		self.thread.start()
 		self.isReceiving = False
-		self.packetsReceived = 0
 		self.currentFilename = None
 		self.dataPacketCorruptRate = 0
 		self.ackPacketDropRate = 0
-
-		self.image_panel = None
-		self.panel_root = None
-		self.image_updated = False
-
-		self.max_width = 600
-		self.max_height = 600
-
-		if showWindow:
-			self.panel_root, self.image_panel = create_window_image()
-
-
+		self.expectedSeqNum = 0
+		
 	def determineFileExtension( self, packet ):
 		if len( packet ) < 4:
 			return "FILE"
@@ -56,28 +43,6 @@ class RDTReceiver:
 		file.write( data )
 		file.close()
 
-		self.image_updated = True
-
-	def update_image(self, force=False):
-		if self.panel_root is None:
-			return
-
-		try:
-			if self.image_updated or force:
-
-				# open cv can read corrupted files
-				image = read_image(self.currentFilename)
-
-				if image is not None:
-					display_image(self.image_panel, image, self.max_width, self.max_height)
-
-				self.image_updated = False
-
-			self.panel_root.update()
-		except Exception as ex:
-			print(ex)
-
-
 	def makePacket( self, sequence, data ):
 		packet = bytearray()
 		
@@ -85,7 +50,7 @@ class RDTReceiver:
 			data = bytearray(data)
 		
 		chksum = checksum( sequence, data )
-		chksum = chksum.to_bytes(2,byteorder='little')
+		chksum = chksum.to_bytes(2,byteorder=G_PACKET_CHECKSUM_BYTE_ORDER)
 		
 		packet.append( chksum[0] )
 		packet.append( chksum[1] )
@@ -96,44 +61,6 @@ class RDTReceiver:
 		
 		return packet
 	
-	def handleStateWait0( self, data, addr ):
-		if self.isReceiving == False:
-			self.currentFilename = 'output_' + getISO()[:19].replace(':','_') + '.'
-			self.currentFilename += self.determineFileExtension( data[G_PACKET_DATASTART:] )
-			print( getISO(), "RECEIVER: Packet received, awaiting the rest of the transmission..." )
-			
-			self.isReceiving = True
-			
-		if data[2] == 0 and not isPacketCorrupt( 0, data ): # data[2] is the sequence byte			
-			# drop ACK packet based on user-supplied drop percentage
-			if not randomTrueFromChance( self.ackPacketDropRate ): # drop packet if we get a True
-				self.socket.sendto( self.makePacket( 0, b'ACK' ), addr )
-				
-			self.packetsReceived += 1
-			self.appendToFile( data[G_PACKET_DATASTART:] )
-			self.state = RDTReceiver.STATE_WAIT_1
-		else:			
-			# drop ACK packet based on user-supplied drop percentage
-			if not randomTrueFromChance( self.ackPacketDropRate ):
-				self.socket.sendto( self.makePacket( 1, b'ACK' ), addr )
-	
-	def handleStateWait1( self, data, addr ):
-		if self.isReceiving == False:
-			print( "\n", getISO(), "RECEIVER: We have some very serious problems" )
-	
-		if data[2] == 1 and not isPacketCorrupt( 1, data ): # data[2] is the sequence byte			
-			# drop ACK packet based on user-supplied drop percentage
-			if not randomTrueFromChance( self.ackPacketDropRate ): # drop packet if we get a True
-				self.socket.sendto( self.makePacket( 1, b'ACK' ), addr )
-				
-			self.packetsReceived += 1
-			self.appendToFile( data[G_PACKET_DATASTART:] )
-			self.state = RDTReceiver.STATE_WAIT_0
-		else:			
-			# drop ACK packet based on user-supplied drop percentage
-			if not randomTrueFromChance( self.ackPacketDropRate ):
-				self.socket.sendto( self.makePacket( 0, b'ACK' ), addr )
-	
 	def receiveLoop( self ):
 		while True:
 			try:
@@ -141,16 +68,53 @@ class RDTReceiver:
 				
 				packet = bytearray( data )
 				corruptPacket( packet, self.dataPacketCorruptRate )
+				info = getAssembledPacketInfo( packet )
+				seqNum = info['seqnumInt']
+				self.expectedSeqNum = 0
 				
-				if self.state == RDTReceiver.STATE_WAIT_0:
-					self.handleStateWait0( packet, address )
-				elif self.state == RDTReceiver.STATE_WAIT_1:
-					self.handleStateWait1( packet, address )
+				if not self.expectedSeqNum == seqNum or isAssembledPacketCorrupt( info['seqnumBytes'], packet ):
+					if G_LOSS_RECOVERY_ENABLED:
+						if not randomTrueFromChance( self.ackPacketDropRate ):
+							# 255 is a safe number if the first packet is corrupt
+							self.socket.sendto( assemblePacket( 255, b'ACK' ), address )
+					continue
+				else:				
+					self.currentFilename = 'output_' + getISO()[:19].replace(':','_') + '.'
+					self.currentFilename += self.determineFileExtension( data[G_PACKET_DATASTART:] )
+					print( getISO(), "RECEIVER: Packet received, awaiting the rest of the transmission..." )
+					self.appendToFile( info['data'] )
+					self.expectedSeqNum += 1
+					self.isReceiving = True
+					if not randomTrueFromChance( self.ackPacketDropRate ):
+						self.socket.sendto( assemblePacket( info['seqnumInt'], b'ACK' ), address )
+				
+				while self.isReceiving:
+					data, address = self.socket.recvfrom( G_PACKET_MAXSIZE )
+					
+					packet = bytearray( data )
+					corruptPacket( packet, self.dataPacketCorruptRate )
+					
+					info = getAssembledPacketInfo( data )
+					seqNum = info['seqnumInt']
+					if self.expectedSeqNum == seqNum and not isAssembledPacketCorrupt( info['seqnumBytes'], packet ):
+						self.appendToFile( info['data'] )
+						self.expectedSeqNum += 1
+						if not randomTrueFromChance( self.ackPacketDropRate ):
+							self.socket.sendto( assemblePacket( info['seqnum'], b'ACK' ), address )
+					else:
+						if G_LOSS_RECOVERY_ENABLED:
+							# if we've already received this seqNum, ACK again in case the ACK was lost
+							if seqNum < self.expectedSeqNum:
+								if not randomTrueFromChance( self.ackPacketDropRate ):
+									self.socket.sendto( assemblePacket( seqNum, b'ACK' ), address )
+							# if it's just out of order, ACK last received packet
+							else:
+								if not randomTrueFromChance( self.ackPacketDropRate ):
+									self.socket.sendto( assemblePacket( self.expectedSeqNum - 1, b'ACK' ), address )
 
 			except socket.timeout:
 				if self.isReceiving:
-					print( "\n", getISO(), "RECEIVER: timed out, waiting for a new transmission; packets received:", self.packetsReceived )
+					#print( "\n", getISO(), "RECEIVER: timed out, waiting for a new transmission; packets received:", self.expectedSeqNum )
 					self.isReceiving = False
-					self.packetsReceived = 0
+					self.expectedSeqNum = 0
 					self.currentFilename = None
-					self.state = RDTReceiver.STATE_WAIT_0

@@ -20,6 +20,11 @@ class RDT:
 		
 rdt = RDT( sys.argv[1], (sys.argv[2]), int(sys.argv[3]), showWindow )
 
+print( "Receive host (this machine):", sys.argv[1] )
+print( "Send host (remote machine):", sys.argv[2] )
+print( "Application port: ", sys.argv[3] )
+print( "" )
+
 success = False
 
 print( "When entering the following percentages, please use whole integers\n" )
@@ -51,9 +56,10 @@ try:
 			print( "\n=== SENDER CONFIGURATION ===" )
 			
 			rdt.sender.ackPacketCorruptRate = int( input( "Sender ACK corrupt rate: " ) )
-			rdt.sender.dataPacketDropRate = int( input( "Sender data packet drop rate: " ) )\
+			rdt.sender.dataPacketDropRate = int( input( "Sender data packet drop rate: " ) )
+			rdt.sender.windowSize = int( input( "Sender window size: " ) )
 			
-			rdt.sender.sendLoop(rdt.receiver.update_image)
+			rdt.sender.sendLoop()
 		except ValueError:
 			print( "Invalid user input. Please try again." )
 except (KeyboardInterrupt, EOFError): #EOFError thrown when Ctrl+C pressed while input() is waiting for user input
