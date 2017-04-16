@@ -64,7 +64,10 @@ def isPacketCorrupt( sequence, packet ):
 		return True
 
 def isAssembledPacketCorrupt( seqNum, packet ):
-	chksum = checksumArr( seqNum, packet[G_PACKET_DATASTART:] )
+	if type( seqNum ) == int:
+		chksum = checksumArr( seqNum.to_bytes(4, byteorder=G_PACKET_CHECKSUM_BYTE_ORDER), packet[G_PACKET_DATASTART:] )
+	elif type( seqNum ) == bytes:
+		chksum = checksumArr( seqNum, packet[G_PACKET_DATASTART:] )
 	packetSum = int.from_bytes( packet[:2], byteorder=G_PACKET_CHECKSUM_BYTE_ORDER )
 	if not chksum == packetSum or packet == b'':
 		return True
