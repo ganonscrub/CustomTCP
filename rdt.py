@@ -18,7 +18,6 @@ rdt = RDT( sys.argv[1], (sys.argv[2]), int(sys.argv[3]) )
 print( "Receive host (this machine):", sys.argv[1] )
 print( "Send host (remote machine):", sys.argv[2] )
 print( "Application port: ", sys.argv[3] )
-print( "Sender window size:", rdt.sender.windowSize )
 print( "" )
 
 success = False
@@ -53,7 +52,7 @@ try:
 			
 			rdt.sender.ackPacketCorruptRate = int( input( "Sender ACK corrupt rate: " ) )
 			rdt.sender.dataPacketDropRate = int( input( "Sender data packet drop rate: " ) )
-			G_SENDER_WINDOW_SIZE = int( input( "Sender window size: " ) )
+			rdt.sender.windowSize = int( input( "Sender window size: " ) )
 			
 			rdt.sender.sendLoop()
 		except ValueError:

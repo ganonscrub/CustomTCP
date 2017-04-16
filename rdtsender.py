@@ -26,7 +26,7 @@ class RDTSender:
 		self.ackPacketCorruptRate = 0
 		self.dataPacketDropRate = 0
 		self.window = []
-		self.windowSize = G_SENDER_WINDOW_SIZE
+		self.windowSize = 5
 		self.base = 0
 		self.nextSeqNum = self.base + self.windowSize
 	
@@ -69,7 +69,7 @@ class RDTSender:
 		self.totalPacketsToSend = 0
 		self.currentPacketNumber = 0
 		self.window = []
-		self.windowSize = G_SENDER_WINDOW_SIZE
+		self.windowSize = 5
 		self.base = 0
 		self.nextSeqNum = self.base + self.windowSize
 	
@@ -93,35 +93,6 @@ class RDTSender:
 	
 	def sendToRemote( self, packet ):
 		self.socket.sendto( packet, (self.sendHost, self.sendPort) )
-		
-	def handleStateWait0( self ):
-		fileData = self.getFileBytes( self.currentFilename, self.currentPacketNumber )
-		packet = self.makePacket( 0, fileData )
-		
-		if not randomTrueFromChance( self.dataPacketDropRate ):
-			self.sendToRemote( packet )
-		
-		self.state = RDTSender.STATE_WAITACK_0
-	
-	def handleStateWaitAck0( self ):
-		try:
-			data, address = self.socket.recvfrom( 32 )
-			
-			packet = bytearray( data )
-			corruptPacket( packet, self.ackPacketCorruptRate )
-			
-			if packet[3:] == b'ACK' and not isPacketCorrupt( 0, packet ):
-				self.printProgress()
-				self.state = RDTSender.STATE_WAIT_1
-				self.currentPacketNumber += 1
-			else:
-				pass # state doesn't change, so this function will be run again on the next loop iteration
-				# this is where we can increment a triple ACK counter
-		except socket.timeout: # RDT3.0: if we timeout waiting for an ACK0, resend the 0 packet
-			self.state = RDTSender.STATE_WAIT_0
-
-	def getSeqNumFromAck( self, packet ):
-		pass
 			
 	def handleStateSendWait( self ):
 		success = False
@@ -174,7 +145,7 @@ class RDTSender:
 				seqNum = info['seqnumInt']
 				
 				if not seqNum == self.base or isAssembledPacketCorrupt( info['seqnumBytes'], packet ):
-					print( "Out-of-order or corrupt packet", seqNum )
+					#print( "Out-of-order or corrupt packet", seqNum )
 					continue
 				else:
 					# get rid of first element in our buffer
@@ -193,11 +164,10 @@ class RDTSender:
 					self.window.append( assemblePacket( self.base + self.windowSize - 1, fileData ) )
 				
 		except socket.timeout:
-			self.state = RDTSender.STATE_SEND_PACKETS
+			if G_LOSS_RECOVERY_ENABLED:
+				self.state = RDTSender.STATE_SEND_PACKETS
 		
-	def sendLoop( self ):	
-		self.windowSize = G_SENDER_WINDOW_SIZE
-	
+	def sendLoop( self ):
 		self.handleStateSendWait()
 	
 		while self.isSending:

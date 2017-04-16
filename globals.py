@@ -22,7 +22,7 @@ G_COMMON_FILE_BYTES["bmp"] = b'\x42\x4d'
 G_COMMON_FILE_BYTES["jpg"] = b'\xff\xd8'
 G_COMMON_FILE_BYTES["png"] = b'\x89\x50\x4e\x47'
 
-G_SENDER_WINDOW_SIZE = 5
+G_LOSS_RECOVERY_ENABLED = True
 
 # custom checksum function so we aren't just copying the algorithm from RFC 793
 def checksum( sequence, bytes ):
