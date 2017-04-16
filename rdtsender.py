@@ -164,7 +164,7 @@ class RDTSender:
 					
 					if not randomTrueFromChance( self.dataPacketDropRate ):
 						self.sendToRemote( newPacket )
-					self.printProgress()
+					#self.printProgress()
 				
 		except socket.timeout:
 			if G_LOSS_RECOVERY_ENABLED:

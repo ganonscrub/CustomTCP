@@ -61,6 +61,7 @@ class RDTReceiver:
 	def receiveLoop( self ):
 		while True:
 			try:
+				# wait to receive initial packet from sender
 				data, address = self.socket.recvfrom( G_PACKET_MAXSIZE )
 				
 				packet = bytearray( data )
@@ -72,7 +73,7 @@ class RDTReceiver:
 				if not self.expectedSeqNum == seqNum or isAssembledPacketCorrupt( info['seqnumBytes'], packet ):
 					if G_LOSS_RECOVERY_ENABLED:
 						if not randomTrueFromChance( self.ackPacketDropRate ):
-							# 255 is a safe number if the first packet is corrupt
+							# 255 is a safe ACK number if the first packet is corrupt (for this phase)
 							self.socket.sendto( assemblePacket( 255, b'ACK' ), address )
 					continue
 				else:				
