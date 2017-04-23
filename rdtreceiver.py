@@ -71,10 +71,7 @@ class RDTReceiver:
 				self.expectedSeqNum = 0
 				
 				if not self.expectedSeqNum == seqNum or isAssembledPacketCorrupt( info['seqnumBytes'], packet ):
-					if G_LOSS_RECOVERY_ENABLED:
-						if not randomTrueFromChance( self.ackPacketDropRate ):
-							# 255 is a safe ACK number if the first packet is corrupt (for this phase)
-							self.socket.sendto( assemblePacket( 255, b'ACK' ), address )
+					# don't send anything if the first packet is bad
 					continue
 				else:				
 					self.currentFilename = 'output_' + getISO()[:19].replace(':','_') + '.'
@@ -101,14 +98,10 @@ class RDTReceiver:
 							self.socket.sendto( assemblePacket( info['seqnum'], b'ACK' ), address )
 					else:
 						if G_LOSS_RECOVERY_ENABLED:
-							# if we've already received this seqNum, ACK again in case the ACK was lost
-							if seqNum < self.expectedSeqNum:
+							# if we've already received this seqNum, ACK last good seqNum received
+							if not seqNum == self.expectedSeqNum:
 								if not randomTrueFromChance( self.ackPacketDropRate ):
-									self.socket.sendto( assemblePacket( seqNum, b'ACK' ), address )
-							# if it's just out of order, ACK last received packet
-							else:
-								if not randomTrueFromChance( self.ackPacketDropRate ):
-									self.socket.sendto( assemblePacket( self.expectedSeqNum - 1, b'ACK' ), address )
+									self.socket.sendto( assemblePacket( self.expectedSeqNum, b'ACK' ), address )
 
 			except socket.timeout:
 				if self.isReceiving:

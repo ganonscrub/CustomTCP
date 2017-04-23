@@ -168,6 +168,7 @@ class RDTSender:
 				
 		except socket.timeout:
 			if G_LOSS_RECOVERY_ENABLED:
+				print( "Timeout, resending" )
 				self.state = RDTSender.STATE_SEND_PACKETS
 		
 	def sendLoop( self ):
